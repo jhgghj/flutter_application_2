@@ -1,0 +1,21 @@
+{
+  "name": "测试词库",
+  "words": [
+    {
+      "word": "apple",
+      "translations": [{"type": "n", "translation": "苹果"}],
+      "phrases": [{"phrase": "apple pie", "translation": "苹果派"}]
+    },
+    {
+      "word": "act",
+      "translations": [
+        {"type": "v", "translation": "表演；举动；起作用"},
+        {"type": "n", "translation": "行为，法令；一幕"}
+      ],
+      "phrases": [
+        {"phrase": "act as", "translation": "担当"},
+        {"phrase": "act on", "translation": "对…起作用；按照…行事"}
+      ]
+    }
+  ]
+}
