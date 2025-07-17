@@ -1,0 +1,753 @@
+/* import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await WordBookManager.loadWordBooks();
+  runApp(MyApp());
+}
+
+class Translation {
+  final String type;
+  final String translation;
+
+  Translation({required this.type, required this.translation});
+
+  factory Translation.fromJson(Map<String, dynamic> json) {
+    return Translation(
+      type: json['type'] ?? '',
+      translation: json['translation'],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'translation': translation,
+      };
+}
+
+class Phrase {
+  final String phrase;
+  final String translation;
+
+  Phrase({required this.phrase, required this.translation});
+
+  factory Phrase.fromJson(Map<String, dynamic> json) {
+    return Phrase(
+      phrase: json['phrase'],
+      translation: json['translation'],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'phrase': phrase,
+        'translation': translation,
+      };
+}
+
+class WordEntry {
+  final String word;
+  final List<Translation> translations;
+  final List<Phrase> phrases;
+
+  WordEntry({required this.word, required this.translations, required this.phrases});
+
+  factory WordEntry.fromJson(Map<String, dynamic> json) {
+    return WordEntry(
+      word: json['word'],
+      translations: (json['translations'] as List)
+          .map((e) => Translation.fromJson(e))
+          .toList(),
+      phrases: (json['phrases'] as List)
+          .map((e) => Phrase.fromJson(e))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'word': word,
+        'translations': translations.map((t) => t.toJson()).toList(),
+        'phrases': phrases.map((p) => p.toJson()).toList(),
+      };
+}
+
+class WordBook {
+  final String name;
+  final List<WordEntry> words;
+
+  WordBook({required this.name, required this.words});
+
+  factory WordBook.fromJson(Map<String, dynamic> json) {
+    return WordBook(
+      name: json['name'],
+      words: (json['words'] as List)
+          .map((e) => WordEntry.fromJson(e))
+          .toList(),
+    );
+  }
+}
+
+class WordBookManager {
+  static WordBook? selectedBook;
+  static final List<WordBook> wordBooks = [];
+  static final WordBook myWordBook = WordBook(name: '我的词库', words: []);
+
+  static Future<void> loadWordBooks() async {
+  final jsonString = await rootBundle.loadString(
+      'assets/words/english-vocabulary-master/json/converted-5-考研-顺序.json');
+  final Map<String, dynamic> jsonData = json.decode(jsonString);
+  final loadedBook = WordBook.fromJson(jsonData);
+
+  await loadMyWordBook();
+
+  // 先加入“我的词库”到最前面
+  wordBooks.add(myWordBook);
+  // 再加入其他词库
+  wordBooks.add(loadedBook);
+}
+
+  
+  static Future<void> saveMyWordBook() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonWords = myWordBook.words.map((e) => e.toJson()).toList();
+    await prefs.setString('myWordBook', json.encode(jsonWords));
+  }
+
+  static Future<void> loadMyWordBook() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('myWordBook');
+    if (saved != null) {
+      final List<dynamic> decoded = json.decode(saved);
+      myWordBook.words.clear();
+      myWordBook.words
+          .addAll(decoded.map((e) => WordEntry.fromJson(e)).toList());
+    }
+  }
+
+  static Future<void> addWordToMyWordBook(WordEntry word) async {
+    if (!myWordBook.words.any((w) => w.word == word.word)) {
+      myWordBook.words.add(word);
+      await saveMyWordBook();
+    }
+  }
+
+  static Future<void> addWordsToMyWordBook(List<WordEntry> words) async {
+    for (final word in words) {
+      if (!myWordBook.words.any((w) => w.word == word.word)) {
+        myWordBook.words.add(word);
+      }
+    }
+    await saveMyWordBook();
+
+
+  }
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Flutter 底部导航示例',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: HomePage(),
+    );
+  }
+}
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  _HomePageState createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int _currentIndex = 0;
+
+  final List<Widget> _pages = [
+    HomeScreen(),
+    WordLibraryScreen(),
+    StatisticsScreen(),
+    ProfileScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _pages[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: '首页',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.book),
+            label: '词库',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: '统计',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: '我的',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  _HomeScreenState createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _selectedCount = 10;
+  final List<int> _options = [10, 20, 30, 50, 100];
+  final TextEditingController _customCountController = TextEditingController();
+  String _errorMessage = '';
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('选择本次计划背诵的单词数量：', style: TextStyle(fontSize: 18)),
+          SizedBox(height: 12),
+          DropdownButton<int>(
+            value: _selectedCount,
+            items: _options.map((count) {
+              return DropdownMenuItem<int>(
+                value: count,
+                child: Text('$count 个'),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedCount = value!;
+                _customCountController.clear(); // Clear custom input when option is selected
+                _errorMessage = ''; // Clear error message
+              });
+            },
+          ),
+          SizedBox(height: 12),
+          // Custom Input Field
+          TextField(
+            controller: _customCountController,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: '自定义背诵数量',
+              border: OutlineInputBorder(),
+              errorText: _errorMessage.isEmpty ? null : _errorMessage,
+            ),
+            onChanged: (value) {
+              if (value.isNotEmpty) {
+                setState(() {
+                  _selectedCount = int.tryParse(value) ?? 10;
+                  _errorMessage = ''; // Clear error message if valid
+                });
+              }
+            },
+          ),
+          SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () {
+              // Validate custom input before proceeding
+              if (_customCountController.text.isNotEmpty &&
+                  int.tryParse(_customCountController.text) == null) {
+                setState(() {
+                  _errorMessage = '请输入有效的数字';
+                });
+                return;
+              }
+
+              // Ensure a wordbook is selected
+              if (WordBookManager.selectedBook == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('请先选择词库')),
+                );
+                return;
+              }
+
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FlashcardStudyScreen(planCount: _selectedCount),
+                ),
+              );
+            },
+            child: Text('开始背单词'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class WordLibraryScreen extends StatefulWidget {
+  const WordLibraryScreen({super.key});
+
+  @override
+  State<WordLibraryScreen> createState() => _WordLibraryScreenState();
+}
+
+class _WordLibraryScreenState extends State<WordLibraryScreen> {
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBooks();
+  }
+
+  Future<void> _loadBooks() async {
+    // 确保只加载一次，避免重复添加
+    if (WordBookManager.wordBooks.isEmpty) {
+      await WordBookManager.loadWordBooks();
+    }
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Center(child: CircularProgressIndicator());
+    }
+
+    return ListView.builder(
+      itemCount: WordBookManager.wordBooks.length,
+      itemBuilder: (context, index) {
+        final book = WordBookManager.wordBooks[index];
+        final isMyWordBook = book.name == '我的词库';
+
+        return ListTile(
+          leading: isMyWordBook
+              ? Icon(Icons.star, color: Colors.orange)  // 高亮显示“我的词库”
+              : Icon(Icons.book),
+          title: Text(
+            book.name,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: isMyWordBook ? FontWeight.bold : FontWeight.normal,
+              color: isMyWordBook ? Colors.orange : null,
+            ),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextButton(
+                child: Text("选择单词"),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SelectWordScreen(book: book),
+                    ),
+                  );
+                },
+              ),
+              TextButton(
+                child: Text("选择整本"),
+                onPressed: () async {
+                  await WordBookManager.addWordsToMyWordBook(book.words);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('已添加整本词库到“我的词库”')),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+
+class SelectWordScreen extends StatefulWidget {
+  final WordBook book;
+
+  const SelectWordScreen({super.key, required this.book});
+
+  @override
+  State<SelectWordScreen> createState() => _SelectWordScreenState();
+}
+
+class _SelectWordScreenState extends State<SelectWordScreen> {
+  final Set<int> _selectedIndexes = {};
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("选择单词 - ${widget.book.name}"),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              final selectedWords = _selectedIndexes.map((i) => widget.book.words[i]).toList();
+              await WordBookManager.addWordsToMyWordBook(selectedWords);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('已添加所选单词到“我的词库”')),
+              );
+              Navigator.pop(context);
+            },
+            child: Text("添加", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+      body: ListView.builder(
+        itemCount: widget.book.words.length,
+        itemBuilder: (context, index) {
+          final word = widget.book.words[index];
+          final isSelected = _selectedIndexes.contains(index);
+          return ListTile(
+            leading: Checkbox(
+              value: isSelected,
+              onChanged: (checked) {
+                setState(() {
+                  if (checked == true) {
+                    _selectedIndexes.add(index);
+                  } else {
+                    _selectedIndexes.remove(index);
+                  }
+                });
+              },
+            ),
+            title: Text(word.word, style: TextStyle(fontSize: 18)),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class WordListScreen extends StatelessWidget {
+  final WordBook book;
+
+  const WordListScreen({super.key, required this.book});
+
+  @override
+  Widget build(BuildContext context) {
+    final myWords = WordBookManager.myWordBook.words;
+    return Scaffold(
+      appBar: AppBar(title: Text("我的词库")),
+      body: myWords.isEmpty
+          ? Center(child: Text("尚未添加任何单词"))
+          : ListView.builder(
+              itemCount: myWords.length,
+        itemBuilder: (context, index) {
+                final word = myWords[index];
+          return ListTile(
+            title: Text(word.word, style: TextStyle(fontSize: 18)),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => WordDetailScreen(word: word),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class WordDetailScreen extends StatefulWidget {
+  final WordEntry word;
+
+  const WordDetailScreen({super.key, required this.word});
+
+  @override
+  State<WordDetailScreen> createState() => _WordDetailScreenState();
+}
+
+class _WordDetailScreenState extends State<WordDetailScreen> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final phrases = widget.word.phrases;
+    final displayedPhrases = _expanded ? phrases : phrases.take(3).toList();
+
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.word.word)),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('释义：', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ...widget.word.translations.map((t) => Text('${t.type}. ${t.translation}')),
+            if (phrases.isNotEmpty) ...[
+              SizedBox(height: 16),
+              Text('短语：', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ...displayedPhrases.map((p) => Text('${p.phrase}：${p.translation}')),
+              if (phrases.length > 3)
+                TextButton(
+                  onPressed: () => setState(() => _expanded = !_expanded),
+                  child: Text(_expanded ? '收起' : '展开更多短语'),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class StatisticsScreen extends StatelessWidget {
+  const StatisticsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        '统计内容',
+        style: TextStyle(fontSize: 24),
+      ),
+    );
+  }
+}
+
+class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text('我的内容'),
+    );
+  }
+}
+
+class FlashcardStudyScreen extends StatefulWidget {
+  final int planCount;
+
+  const FlashcardStudyScreen({super.key, required this.planCount});
+
+  @override
+  _FlashcardStudyScreenState createState() => _FlashcardStudyScreenState();
+}
+
+class _FlashcardStudyScreenState extends State<FlashcardStudyScreen> {
+  int _currentIndex = 0;
+  bool _showDetails = false;
+
+  void _nextBatch() {
+    setState(() {
+      _currentIndex += 4;
+      if (_currentIndex >= widget.planCount) {
+        _currentIndex = 0;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已到达计划背诵量，重新开始')),
+        );
+      }
+      _showDetails = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final book = WordBookManager.selectedBook;
+
+    if (book == null || book.words.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: Text('背单词')),
+        body: Center(child: Text('请先选择词库')),
+      );
+    }
+
+    final planWords = book.words.take(widget.planCount).toList();
+    final words = planWords.skip(_currentIndex).take(4).toList();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('背单词 - ${book.name}'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(child: Text('${_currentIndex + 1}-${_currentIndex + words.length}/${widget.planCount}')),
+          )
+        ],
+      ),
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          setState(() {
+            if (_showDetails) {
+              _nextBatch();
+            } else {
+              _showDetails = true;
+            }
+          });
+        },
+        child: GridView.builder(
+          padding: EdgeInsets.all(16),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+          mainAxisSpacing: 16,
+            crossAxisSpacing: 16,
+            childAspectRatio: 0.5,
+          ),
+          itemCount: words.length,
+          itemBuilder: (context, index) {
+            final word = words[index];
+            return Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: SingleChildScrollView(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      word.word,
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    if (_showDetails) ...[
+                      SizedBox(height: 12),
+                      ...word.translations.map(
+                          (t) => Text(
+                            '${t.type.isNotEmpty ? "${t.type}. " : ""}${t.translation}',
+                            style: TextStyle(fontSize: 13),
+                            textAlign: TextAlign.center,
+                          ),
+                      ),
+                      if (word.phrases.isNotEmpty) ...[ 
+                        SizedBox(height: 8),
+                          Text('短语：', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        ...word.phrases.map(
+                            (p) => Text('${p.phrase}：${p.translation}', style: TextStyle(fontSize: 12)),
+                        ),
+                        ]
+                    ]
+                  ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+ */
+
+/* import 'package:flutter/material.dart';
+import 'screens/home_screen.dart';
+import 'services/word_book_manager.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await WordBookManager.loadWordBooks();
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: '背单词',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: HomeScreen(),
+    );
+  }
+} */
+
+/// 主入口文件 main.dart
+import 'package:flutter/material.dart';
+import 'screens/home_screen.dart';
+import 'screens/word_library_screen.dart';
+import 'screens/statistics_screen.dart';
+import 'screens/profile_screen.dart';
+import 'screens/flashcard_screen.dart';
+import 'services/word_book_manager.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await WordBookManager.loadWordBooks();
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Word Flash',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: const HomePage(),
+    );
+  }
+}
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int _currentIndex = 0;
+
+  final List<Widget> _pages = const [
+    HomeScreen(),
+    WordLibraryScreen(),
+    StatisticsScreen(),
+    ProfileScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(child: _pages[_currentIndex]),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
+          BottomNavigationBarItem(icon: Icon(Icons.book), label: '词库'),
+          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: '统计'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: '我的'),
+        ],
+      ),
+    );
+  }
+}

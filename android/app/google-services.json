@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "996088908047",
+    "project_id": "word-rush-5ab13",
+    "storage_bucket": "word-rush-5ab13.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:996088908047:android:e0fd7b6b463deae220967a",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBgO3GUaiCyCd0cwQUhXAoW8_XzKDJSIHk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
